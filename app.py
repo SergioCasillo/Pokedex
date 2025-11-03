@@ -71,7 +71,7 @@ st.title("Pokédex Interactiva")
 st.caption("Exploración y visualización de estadísticas de Pokémon")
 
 # -----------------------------------------------------------
-# Vista 1: Explorador de combate
+# Vistas
 # -----------------------------------------------------------
 if vista == "Explorador de combate":
     col1, col2, col3, col4 = st.columns(4)
@@ -88,24 +88,15 @@ if vista == "Explorador de combate":
         col1.metric("Máx Total", f'{int(df_f.loc[idx_total, "Total"])}', help=f'Pokémon: {df_f.loc[idx_total, "Nombre"]}')
         col2.metric("Máx Velocidad", f'{int(df_f.loc[idx_vel, "Velocidad"])}', help=f'Pokémon: {df_f.loc[idx_vel, "Nombre"]}')
         col3.metric("Máx Ataque", f'{int(df_f.loc[idx_atk, "Ataque"])}', help=f'Pokémon: {df_f.loc[idx_atk, "Nombre"]}')
-        col4.metric(
-    "Máx Defensa",
-    f'{int(df_f.loc[idx_def, "Defensa"])}',
-    help=f'Pokémon: {df_f.loc[idx_def, "Nombre"]}'
-)
+        col4.metric("Máx Defensa", f'{int(df_f.loc[idx_def, "Defensa"])}', help=f'Pokémon: {df_f.loc[idx_def, "Nombre"]}')
 
     st.subheader("Ataque vs Defensa")
     if df_f.empty:
         st.info("Sin datos para graficar.")
     else:
         fig_scatter = px.scatter(
-            df_f,
-            x="Ataque",
-            y="Defensa",
-            color="Tipo",
-            hover_data=["Nombre","País","Total","Velocidad","HP","Sp. Atk","Sp. Def"],
-            labels={"Ataque":"Ataque","Defensa":"Defensa"},
-            title=None
+            df_f, x="Ataque", y="Defensa", color="Tipo",
+            hover_data=["Nombre","País","Total","Velocidad","HP","Sp. Atk","Sp. Def"]
         )
         st.plotly_chart(fig_scatter, use_container_width=True)
 
@@ -113,13 +104,7 @@ if vista == "Explorador de combate":
     if df_f.empty:
         st.info("Sin datos para graficar.")
     else:
-        fig_hist = px.histogram(
-            df_f,
-            x="HP",
-            nbins=30,
-            labels={"HP":"HP"},
-            title=None
-        )
+        fig_hist = px.histogram(df_f, x="HP", nbins=30)
         st.plotly_chart(fig_hist, use_container_width=True)
 
     st.subheader("Tabla filtrada")
@@ -128,10 +113,7 @@ if vista == "Explorador de combate":
         use_container_width=True
     )
 
-# -----------------------------------------------------------
-# Vista 2: Geografía Pokémon
-# -----------------------------------------------------------
-else:
+elif vista == "Geografía Pokémon":
     st.subheader("Promedio de 'Total' por país")
     if df_f.empty:
         st.info("Sin datos con los filtros actuales.")
@@ -142,34 +124,21 @@ else:
                .mean()
                .sort_values("Total", ascending=False)
         )
-
     if not promedio_pais.empty:
         fig_map = px.choropleth(
             promedio_pais,
-            locations="País",
-            locationmode="country names",
-            color="Total",
-            hover_name="País",
-            title=None
+            locations="País", locationmode="country names", color="Total", hover_name="País"
         )
         st.plotly_chart(fig_map, use_container_width=True)
 
     c1, c2 = st.columns(2)
-
     with c1:
         st.markdown("Top 10 Pokémon por 'Total' (según filtros)")
         if df_f.empty:
             st.info("Sin datos para graficar.")
         else:
             top10 = df_f.sort_values("Total", ascending=False).head(10)
-            fig_bar = px.bar(
-                top10,
-                x="Total",
-                y="Nombre",
-                orientation="h",
-                hover_data=["Tipo","País"],
-                title=None
-            )
+            fig_bar = px.bar(top10, x="Total", y="Nombre", orientation="h", hover_data=["Tipo","País"])
             st.plotly_chart(fig_bar, use_container_width=True)
 
     with c2:
@@ -177,32 +146,65 @@ else:
         if df_f.empty:
             st.info("Sin datos para graficar.")
         else:
-            # CORRECCIÓN ROBUSTA: garantiza columnas ['Tipo','Conteo']
             tipos_series = (
-                df_f["Tipo"]
-                .str.split("/")
-                .explode()
-                .dropna()
-                .astype(str)
-                .str.strip()
+                df_f["Tipo"].str.split("/").explode().dropna().astype(str).str.strip()
             )
-
             conteo_tipos = (
-                tipos_series
-                .value_counts()                # Serie: index=Tipo, values=frecuencia
-                .rename_axis("Tipo")           # nombre del índice
-                .reset_index(name="Conteo")    # columna Conteo garantizada
+                tipos_series.value_counts().rename_axis("Tipo").reset_index(name="Conteo")
                 .sort_values("Conteo", ascending=False)
             )
-
             if conteo_tipos.empty:
                 st.info("Sin datos para graficar.")
             else:
-                fig_tipos = px.bar(
-                    conteo_tipos,
-                    x="Conteo",
-                    y="Tipo",
-                    orientation="h",
-                    title=None
-                )
+                fig_tipos = px.bar(conteo_tipos, x="Conteo", y="Tipo", orientation="h")
                 st.plotly_chart(fig_tipos, use_container_width=True)
+
+else:  # Comparación
+    st.subheader("Comparación por tipo: Ataque / Defensa / Velocidad (promedios)")
+    if df_f.empty:
+        st.info("Sin datos con los filtros actuales.")
+    else:
+        # Explota tipos para comparar correctamente por cada tipo
+        df_tipo = df_f.assign(TipoUnidad=df_f["Tipo"].str.split("/")).explode("TipoUnidad")
+        agg = df_tipo.groupby("TipoUnidad", as_index=False)[["Ataque","Defensa","Velocidad"]].mean()
+        melt = agg.melt(id_vars="TipoUnidad", var_name="Métrica", value_name="Promedio")
+        fig_group = px.bar(melt, x="TipoUnidad", y="Promedio", color="Métrica", barmode="group")
+        st.plotly_chart(fig_group, use_container_width=True)
+
+    st.subheader("Boxplot de HP por tipo")
+    if df_f.empty:
+        st.info("Sin datos para graficar.")
+    else:
+        df_tipo = df_f.assign(TipoUnidad=df_f["Tipo"].str.split("/")).explode("TipoUnidad")
+        fig_box = px.box(df_tipo.dropna(subset=["TipoUnidad"]), x="TipoUnidad", y="HP", points=False)
+        st.plotly_chart(fig_box, use_container_width=True)
+
+    st.subheader("Top-10 vs Resto vs Global (Total promedio)")
+    if df_f.empty:
+        st.info("Sin datos para graficar.")
+    else:
+        top10 = df_f.nlargest(10, "Total")
+        resto = df_f[~df_f.index.isin(top10.index)]
+        cmp = pd.DataFrame({
+            "Grupo": ["Top10","Resto","Global"],
+            "Promedio_Total": [
+                top10["Total"].mean() if not top10.empty else float("nan"),
+                resto["Total"].mean() if not resto.empty else float("nan"),
+                df_f["Total"].mean()
+            ]
+        })
+        cmp["Gap_vs_Global"] = cmp["Promedio_Total"] - cmp.loc[cmp["Grupo"]=="Global","Promedio_Total"].values[0]
+        fig_cmp = px.bar(cmp, x="Grupo", y="Promedio_Total", text=cmp["Gap_vs_Global"].round(1))
+        st.plotly_chart(fig_cmp, use_container_width=True)
+
+    st.subheader("Fire vs Water (Total promedio)")
+    if df_f.empty:
+        st.info("Sin datos para comparar.")
+    else:
+        fire = df_f[df_f["Tipo"].str.contains("Fire", na=False)]
+        water = df_f[df_f["Tipo"].str.contains("Water", na=False)]
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Promedio Global", f'{df_f["Total"].mean():.1f}')
+        c2.metric("Promedio Fire", f'{fire["Total"].mean():.1f}' if not fire.empty else "N/D")
+        c3.metric("Promedio Water", f'{water["Total"].mean():.1f}' if not water.empty else "N/D")
+
