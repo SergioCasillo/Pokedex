@@ -8,7 +8,7 @@ from pathlib import Path
 # -----------------------------------------------------------
 st.set_page_config(page_title="Pokédex Dashboard", layout="wide")
 
-# -----------------------------------------------------------
+# ----------------------------------------------------------
 # Carga de datos
 # -----------------------------------------------------------
 @st.cache_data
@@ -41,7 +41,7 @@ df = load_data(csv_path)
 # Sidebar: controles
 # -----------------------------------------------------------
 st.sidebar.header("Controles")
-vista = st.sidebar.selectbox("Vista", ["Explorador de combate", "Geografía Pokémon"])
+vista = st.sidebar.selectbox("Vista", ["Explorador de combate", "Geografía Pokémon", "Comparación"])
 
 paises = sorted([p for p in df["País"].dropna().unique()])
 tipos_unicos = sorted(set(t for sub in df["Tipo"].dropna().str.split("/") for t in sub))
